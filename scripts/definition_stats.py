@@ -8,29 +8,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def find_definitions(section):
-    defined_terms = definition_extractor.extract_defined_terms(section)
-    unique_terms = set(defined_terms)
-    definitions = dict()
-    sentences = section.get_sentences()
-    for sentence in sentences:
-        for term in unique_terms:
-            term_def_regex = definition_extractor.get_term_regex(term)
-            matches = term_def_regex.findall(sentence)
-            if len(matches) == 0: continue
-            assert len(matches) == 1
-            # Terms are sometimes defined multiple times in same section...
-            # TODO: Figure out how to efficiently find definitions at levels below section
-            while term in definitions:
-                term = u"{}#".format(term)
-            definitions[term] = sentence
-    return defined_terms, definitions
-
 def dump_definitions(defined_terms_filename, definitions_filename):
     all_definitions = dict()
     crawler = IRCCrawler()
     for section in crawler.iterate_over_sections():
-        defined_terms, definitions = find_definitions(section)
+        defined_terms, definitions = definition_extractor.extract_definitions(section)
         if len(defined_terms) == 0:
             continue
         all_definitions[section.id.val] = definitions
@@ -48,7 +30,7 @@ def dump_stats(all_definitions, persection_definition_stats_filename, overall_de
         definitions = all_definitions[section_id]
         section_token_counts = []
         for defined_term in definitions:
-            definition = definitions[defined_term]
+            definition = definitions[defined_term]["sentence"]
             token_count = len(word_tokenize(definition))
             section_token_counts.append(token_count)
         overall_token_counts.extend(section_token_counts)

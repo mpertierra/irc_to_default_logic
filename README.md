@@ -38,6 +38,11 @@ python scripts/irc_crawler.py [--level-id LEVEL_ID]
 python scripts/definition_extractor.py [--level-id LEVEL_ID]
 ```
 
+- Extract rules with `rule_extractor.py`. Run the command below, replacing `LEVEL_ID` with the level identifier desired.
+```
+python scripts/rule_extractor.py [--level-id LEVEL_ID]
+```
+
 - Query and prove default logic with `default_logic.py`. Run `python scripts/default_logic.py`. This will run some default logic examples, displaying the background theory, default rules, as well as a goal and its result. The examples are from Sarah Lawsky. **Note** There are two threads running and the script might take a while to exit (an issue has been opened with `nltk`, but no reply yet...).
 
 - Semantic parsing software:
@@ -59,6 +64,7 @@ Input can fail on too long sentences (which there are a few of in the IRC). Back
 
 The steps in `pipeline.py` are:
 - Crawl the IRC with `irc_crawler.py`
+- Extract definitions and rules
 - Parse the requested sentences to a representation, e.g. 
   - `amr` (abstract meaning representation)
   - `fol` (First Order Logic)
@@ -67,5 +73,3 @@ The steps in `pipeline.py` are:
     - Definitions are extracted with `definition_extractor.py`
     - Default rules are searched for based on the representation
     - The default logic is formulated, the default rules are added in order of discovery, i.e. earlier rules have lower priority
-   
-- Description of patterns for term definitions in IRC with `pattern_stats.py`. Run the command and output is written to `pattern_stats.txt`

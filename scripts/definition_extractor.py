@@ -1,6 +1,8 @@
 # This Python file uses the following encoding: UTF-8
 import re
 from irc_crawler import IRCCrawler
+from collections import OrderedDict
+
 
 DEFINITION_TYPES = [
     u"means",
@@ -35,38 +37,61 @@ def extract_defined_terms(level):
         defined_terms.append(term)
     return defined_terms
 
-def extract_definitions(level, defined_terms):
-    definition_fol_template = u"all x.({0}{1}(x) -> {2}{3}(x))"
-    definitions = []
+def extract_definitions(level):
+    defined_terms = extract_defined_terms(level)
+    unique_terms = set(defined_terms)
+    definitions = OrderedDict()
     sentences = level.get_sentences()
     for sentence in sentences:
-        for defined_term in defined_terms:
-            term_def_regex = get_term_regex(defined_term)
+        for term in unique_terms:
+            term_def_regex = get_term_regex(term)
             matches = term_def_regex.findall(sentence)
             if len(matches) == 0: continue
             assert len(matches) == 1
             def_type, rest = matches[0]
             assert def_type in DEFINITION_TYPES
             assert len(rest) > 0
-            for other_term in defined_terms:
-                if other_term == defined_term: continue
-                if other_term in rest:
-                    other_term_sign = ""
-                    if "not" in def_type:
-                        other_term_sign = "-"
-                    other_term_predicate = term_to_predicate(other_term)
-                    defined_term_sign = ""
-                    if "other than" in rest or "except" in rest:
-                        defined_term_sign = "-"
-                    defined_term_predicate = term_to_predicate(defined_term)
-                    definition_fol = definition_fol_template.format(
-                        other_term_sign,
-                        other_term_predicate,
-                        defined_term_sign,
-                        defined_term_predicate
-                    )
-                    definitions.append(definition_fol)
-    return definitions
+            # Terms are sometimes defined multiple times in same section...
+            # TODO: Figure out how to efficiently find definitions at levels below section
+            while term in definitions:
+                term = u"{}#".format(term)
+            definitions[term] = {
+                "sentence": sentence,
+                "type": def_type,
+                "rest": rest
+            }
+    return defined_terms, definitions
+
+def fol_definitions(level):
+    definition_fol_template = u"all x.({0}{1}(x) -> {2}{3}(x))"
+    definitions_as_fol = []
+    defined_terms, definitions = extract_definitions(level)
+    for term, definition in definitions.items():
+        def_type = definition["type"]
+        rest = definition["rest"]
+        for other_term in defined_terms:
+            if other_term == term: continue
+            if other_term in rest:
+                other_term_sign = ""
+                if "not" in def_type:
+                    other_term_sign = "-"
+                other_term_predicate = term_to_predicate(other_term)
+                defined_term_sign = ""
+                if "other than" in rest or "except" in rest:
+                    defined_term_sign = "-"
+                defined_term_predicate = term_to_predicate(term)
+                definition_fol = definition_fol_template.format(
+                    other_term_sign,
+                    other_term_predicate,
+                    defined_term_sign,
+                    defined_term_predicate
+                )
+                definitions_as_fol.append({
+                    "term": term,
+                    "definition": definition,
+                    "fol": definition_fol
+                })
+    return definitions_as_fol
 
 def term_to_predicate(term):
     predicate = term.strip().replace(" ", "_SPACE_").replace("-", "_DASH_").replace(",", "_COMMA_")
@@ -80,16 +105,16 @@ def main(args):
     crawler = IRCCrawler()
     level = crawler.get_level(args.level_id)
 
-    defined_terms = extract_defined_terms(level)
-    if len(defined_terms) == 0:
+    definitions_as_fol = fol_definitions(level)
+    if len(definitions_as_fol) == 0:
         print("Info: No term definitions found.")
         return
-    definitions = extract_definitions(level, defined_terms)
 
-    print("*****Defined terms*****")
-    for term in defined_terms: print(term)
-    print("*****Definitions*****")
-    for d in definitions: print(d)
+    for data in definitions_as_fol:
+        print(u"Term:       {}".format(data["term"]))
+        print(u"Definition: {}".format(data["definition"]["sentence"]))
+        print(u"FOL:        {}".format(data["fol"]))
+        print(u"**************")
 
 
 if __name__ == "__main__":

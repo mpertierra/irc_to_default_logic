@@ -19,6 +19,7 @@ class LevelId:
         assert LevelId.LEVEL_ID_PATTERN.match(val), u"Invalid level id: {0}".format(val)
 
     def __init__(self, val):
+        val = unicode(val)
         LevelId._validate(val)
         self.val = val
 
@@ -231,22 +232,22 @@ class IRCCrawler:
                 continue
             yield level
 
-    def find_levels_by_text(self, text, scope_level_id, tag="*"):
-        text = text.lower()
-        scope_level_id = LevelId(scope_level_id)
-        scope_node = self._get_level_node(scope_level_id)
-        tag = "{0}:{1}".format(self.default_namespace, tag)
-        to_lowercase = "translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')"
-        xpath_expression = ".//{0}[text()[contains({1}, '{2}')]]".format(tag, to_lowercase, text)
-        nodes = scope_node.xpath(xpath_expression, namespaces=self.nsmap)
-        levels = []
-        for node in nodes:
-            level_node = node
-            while level_node.get("identifier") is None:
-                level_node = level_node.getparent()
-            level = self._parse_level(level_node)
-            levels.append(level)
-        return levels
+    # def find_levels_by_text(self, text, scope_level_id, tag="*"):
+    #     text = text.lower()
+    #     scope_level_id = LevelId(scope_level_id)
+    #     scope_node = self._get_level_node(scope_level_id)
+    #     tag = "{0}:{1}".format(self.default_namespace, tag)
+    #     to_lowercase = "translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')"
+    #     xpath_expression = ".//{0}[text()[contains({1}, '{2}')]]".format(tag, to_lowercase, text)
+    #     nodes = scope_node.xpath(xpath_expression, namespaces=self.nsmap)
+    #     levels = []
+    #     for node in nodes:
+    #         level_node = node
+    #         while level_node.get("identifier") is None:
+    #             level_node = level_node.getparent()
+    #         level = self._parse_level(level_node)
+    #         levels.append(level)
+    #     return levels
 
 def validate_sections(crawler=None):
     if crawler is None:

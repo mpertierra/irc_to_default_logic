@@ -1,4 +1,5 @@
 import requests
+import nltk
 from nltk.sem.boxer import BoxerOutputDrsParser, NltkDrtBoxerDrsInterpreter
 
 
@@ -16,15 +17,16 @@ class CCBoxerAPI(object):
         options = {"instantiate": "true", "format": "prolog"}
         boxer_out = self._send_request(payload, options=options)
         if debug: print "Server Error Message: |{}|".format(boxer_out["err"].replace('\n', '-newline-'))
-        drs_dict = self._parse_to_drs_dict(boxer_out["out"], False)
+        try:
+            drs_dict = self._parse_to_drs_dict(boxer_out["out"], False)
+        except nltk.sem.logic.LogicalExpressionException:
+            raise CCBoxerAPIException("Unable to parse response.")
         if len(drs_dict) == 0:
             raise CCBoxerAPIException("Recieved empty response.")
         # drs_dict has form {'1': DRS1, '2': DRS2, ... }
-        drss = [None]*len(drs_dict)
-        for s in drs_dict:
-            index = int(s) - 1
-            assert drss[index] is None
-            drss[index] = drs_dict[s]
+        drss = [(int(k), v) for (k, v) in drs_dict.items()]
+        drss.sort(key=lambda pair: pair[0])
+        drss = [pair[1] for pair in drss]
         return drss
 
     def _send_request(self, payload, options=dict()):

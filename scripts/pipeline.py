@@ -1,5 +1,6 @@
 import irc_crawler
 import definition_extractor
+import rule_extractor
 import candc_boxer_api
 import parse_amr
 import default_logic
@@ -60,12 +61,11 @@ def main(args):
         # TODO #3
         # Need user to specify part of background theory.
         # However, this could actually be done later, when we actually want to "run" the default logic.
-        defined_terms = definition_extractor.extract_defined_terms(level)
-        background_theory = definition_extractor.extract_definitions(level, defined_terms)
-        background_theory = [Expression.fromstring(e) for e in background_theory]
-
+        definitions_as_fol = definition_extractor.fol_definitions(level)
+        background_theory = [Expression.fromstring(d["fol"]) for d in definitions_as_fol]
 
         scope_level_id = level.id.get_section_id()
+        scope_level = crawler.get_level(scope_level_id)
         if args.dl_hack:
             if scope_level_id == "s163":
                 # Missing "obvious" rule that personal interest is interest; "interest" is not a defined term
@@ -81,8 +81,7 @@ def main(args):
                 default_rules = []
                 print("Warning: Hard-coding option not a available for section {}.".format(scope_level_id))
         else:
-            default_rules_levels = crawler.find_levels_by_text("general", scope_level_id, tag="heading")
-            default_rules_sentences = [l.get_sentences() for l in default_rules_levels]
+            default_rules_sentences = rule_extractor.extract_rules(scope_level)
 
             try:
                 default_rules = [parse_fol(sentences) for sentences in default_rules_sentences]

@@ -3,36 +3,17 @@ from os.path import join, splitext
 import re
 import json
 from irc_crawler import IRCCrawler
+import rule_extractor
 from nltk.tokenize import word_tokenize
 import numpy as np
 import matplotlib.pyplot as plt
 
-def only_letters(text):
-    pattern = re.compile("[^a-zA-Z]+", re.UNICODE)
-    return pattern.sub("", text)
-
-def find_rules(section):
-    rules = dict()
-    for level in section.preorder_transversal():
-        if level.heading is None:
-            continue
-        heading = only_letters(level.heading).lower()
-        level_rules = dict()
-        if heading == "generalrule":
-            level_rules["general-rule"] = level.get_sentences()
-        elif heading == "exceptions":
-            level_rules["exceptions"] = level.get_sentences()
-        elif heading == "specialrules":
-            level_rules["special-rules"] = level.get_sentences()
-        if len(level_rules) > 0:
-            rules[level.id.val] = level_rules
-    return rules
 
 def dump_rules(rules_filename):
     all_rules = dict()
     crawler = IRCCrawler()
     for section in crawler.iterate_over_sections():
-        rules = find_rules(section)
+        rules = rule_extractor.extract_rules(section)
         if len(rules) == 0:
             continue
         all_rules[section.id.val] = rules
