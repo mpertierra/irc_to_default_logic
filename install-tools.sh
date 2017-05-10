@@ -2,19 +2,19 @@
 
 
 # Clean install
-cd scripts
-rm -rf lib
-mkdir lib
-cd lib
-touch __init__.py
+# cd scripts
+# rm -rf lib
+# mkdir lib
+# cd lib
+# touch __init__.py
 
 # Install smatch
 # git clone https://github.com/snowblink14/smatch.git
 # touch smatch/__init__.py
 
+# cd ../..
 
 # Clean install
-cd ../..
 rm -rf tools
 mkdir tools
 cd tools

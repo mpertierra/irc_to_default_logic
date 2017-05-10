@@ -73,3 +73,26 @@ The steps in `pipeline.py` are:
     - Definitions are extracted with `definition_extractor.py`
     - Default rules are searched for based on the representation
     - The default logic is formulated, the default rules are added in order of discovery, i.e. earlier rules have lower priority
+
+## Stats scripts
+
+We also provide some scripts to generate statistics and plots for extracted definitions and rules. These can be found in the `scripts/stats` directory. To run `scripts/stats/definition_stats.py` and `scripts/stats/rule_stats.py`:
+```
+python -m scripts.stats.definition_stats [--output-dir OUTPUT_DIR]
+                                         [--plot]
+                                         [--plot-sections]
+
+python -m scripts.stats.rule_stats [--output-dir OUTPUT_DIR]
+                                   [--plot]
+                                   [--plot-sections]
+```
+After running these, you can also run `scripts/stats/semparsing_stats.py` to generate counts on C&C/Boxer crashes when running with definitions and rules as input.
+```
+python -m scripts.stats.semparsing_stats [--output-file OUTPUT_FILE]
+                                         [--definitions-filepath DEF_FILEPATH]
+                                         [--rules-filepath RULES_FILEPATH]
+```
+Finally, the outputs of these scripts can be used to plot histograms with the `scripts/stats/plot_hists.py` script.
+```
+python -m scripts.stats.plot_hists
+```

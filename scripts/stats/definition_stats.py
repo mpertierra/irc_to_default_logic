@@ -1,16 +1,17 @@
 import os
 from os.path import join, splitext
 import json
-from irc_crawler import IRCCrawler
-import definition_extractor
+from .. import irc_crawler
+from .. import definition_extractor
 from nltk.tokenize import word_tokenize
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 
 
 def dump_definitions(defined_terms_filename, definitions_filename):
     all_definitions = dict()
-    crawler = IRCCrawler()
+    crawler = irc_crawler.IRCCrawler()
     for section in crawler.iterate_over_sections():
         defined_terms, definitions = definition_extractor.extract_definitions(section)
         if len(defined_terms) == 0:
@@ -44,40 +45,41 @@ def dump_stats(all_definitions, persection_definition_stats_filename, overall_de
         json.dump(overall_definition_stats, f, indent=4, sort_keys=True, encoding="UTF-8")
 
     if args.plot:
-        basename = splitext(persection_definition_stats_filename)[0]
-        for section_id in persection_definition_stats:
-            stats = persection_definition_stats[section_id]
-            title = section_id.encode('ascii', 'ignore')
-            filename = "{}_{}.pdf".format(basename, title)
-            plot_hist(stats, filename, title)
-        stats = overall_definition_stats
+        counts = overall_definition_stats["counts"]
         title = "overall"
         filename = overall_definition_stats_filename.replace('.json','.pdf')
-        plot_hist(stats, filename, title)
+        plot_hist(counts, filename, title, cutoff=300, bins=[10*i for i in xrange(30)])
 
+    if args.plot_sections:
+        basename = splitext(persection_definition_stats_filename)[0]
+        for section_id in persection_definition_stats:
+            counts = persection_definition_stats[section_id]["counts"]
+            title = section_id.encode('ascii', 'ignore')
+            filename = "{}_{}.pdf".format(basename, title)
+            plot_hist(counts, filename, title)
 
-def plot_hist(stats, filename, title_str):
-    # FIXME: histogram for overall stats can't display bin edges because
-    # there's too many, it's unreadable. so we don't show them
-    hist = stats["histogram"]["hist"]
-    bin_edges = np.array(stats["histogram"]["bin-edges"])
-
-    width = np.diff(bin_edges)
-    center = (bin_edges[:-1] + bin_edges[1:]) / 2
+def plot_hist(counts, filename, title, cutoff=float('inf'), bins="auto"):
+    counts = np.array(counts)
+    outlier_mask = is_outlier(counts, cutoff)
+    num_outliers = sum(outlier_mask)
+    counts = counts[~outlier_mask]
+    print("{} outliers for plot in file {} with cutoff {}".format(num_outliers, filename, cutoff))
 
     fig, ax = plt.subplots()
-    ax.bar(center, hist, align='center', width=width)
-    # See the FIXME above 
-    # ax.set_xticks(bin_edges)
-    # plt.setp(ax.get_xticklabels(), fontsize=4, rotation='vertical')
-    plt.title(title_str)
+    _, bin_edges, _ = ax.hist(counts, bins=bins)
+    ax.set_xlabel("Number of tokens")
+    ax.set_ylabel("Frequency")
+    ax.set_xticks(bin_edges)
+    plt.setp(ax.get_xticklabels(), fontsize=8, rotation='vertical')
+    if not math.isinf(cutoff): ax.set_xlim([0, cutoff])
+    ax.set_title(title)
+    plt.tight_layout()
     fig.savefig(filename)
     plt.close()
-               
 
 def calc_stats(counts):
-    hist, bin_edges = np.histogram(counts, bins="auto")
     stats = {
+        "counts": sorted(counts),
         "number": len(counts),
         "min": np.amin(counts),
         "max": np.amax(counts),
@@ -88,10 +90,12 @@ def calc_stats(counts):
         "median": np.median(counts),
         "mean": np.mean(counts),
         "std": np.std(counts),
-        "var": np.var(counts),
-        "histogram": {"hist": hist.tolist(), "bin-edges": bin_edges.tolist()}
+        "var": np.var(counts)
     }
     return stats
+
+def is_outlier(counts, cutoff):
+    return np.array([c > cutoff for c in counts])
 
 def main(args):
     # Make directory to store our output files
@@ -117,6 +121,10 @@ if __name__ == "__main__":
                         type=str,
                         default="definition_stats")
     parser.add_argument("--plot",
-                        action="store_true")
+                        action="store_true",
+                        help="Generate plot for token counts over all definitions.")
+    parser.add_argument("--plot-sections",
+                        action="store_true",
+                        help="Generate plot for each section for token counts over definitions.")
     args = parser.parse_args()
     main(args)
