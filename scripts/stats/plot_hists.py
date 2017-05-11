@@ -64,9 +64,25 @@ def main():
     with open("rule_stats/overall_rule_stats.json", 'r') as f:
         overall_rule_stats = json.load(f)
 
+    definition_crash_counts = []
+    for section_id in semparsing_stats["definitions"]:
+        token_counts = semparsing_stats["definitions"][section_id]
+        definition_crash_counts.extend(token_counts)
+
+    rule_crash_counts = {
+        "general-rule": [],
+        "exceptions": [],
+        "special-rules": []
+    }
+    
+    for rule_type in semparsing_stats["rules"]:
+        for section_id in semparsing_stats["rules"][rule_type]:
+            token_counts = semparsing_stats["rules"][rule_type][section_id]
+            rule_crash_counts[rule_type].extend(token_counts)
+
     plot_definition_hist(
         overall_definition_stats["counts"],
-        semparsing_stats["definitions"],
+        definition_crash_counts,
         "defplot.pdf",
         "definitions",
         cutoff=300,
@@ -74,7 +90,7 @@ def main():
     )
     plot_rule_hist(
         {rule_type: stats["counts"] for rule_type, stats in overall_rule_stats.items()},
-        semparsing_stats["rules"],
+        rule_crash_counts,
         "ruleplot.pdf",
         cutoff=300,
         bins=[10*i for i in xrange(30)]

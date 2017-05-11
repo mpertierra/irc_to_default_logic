@@ -3,28 +3,75 @@ from .. import candc_boxer_api
 from nltk.tokenize import word_tokenize
 
 
-def read_definitions(filepath):
-    with open(filepath, 'r') as f:
-        data = json.load(f)
-    definitions = []
-    for section_id in data:
-        for term in data[section_id]:
-            definitions.append(data[section_id][term]["sentence"])
-    return definitions
+def count_definition_crashes(ccboxer, definitions):
+    crashed_token_counts = dict()
+    total_section_crash_count = 0
+    total_num_definitions = 0
+    total_num_crashes = 0
+    for section_id in definitions:
+        section_definitions = definitions[section_id]
+        sentences = [section_definitions[term]["sentence"] for term in section_definitions]
+        token_counts = count_crashes(ccboxer, sentences)
+        crashed_token_counts[section_id] = token_counts
+        if len(token_counts) > 0:
+            total_section_crash_count += 1
+        total_num_crashes += len(token_counts)
+        total_num_definitions += len(sentences)
+    print("Total number of sections with definitions: {}".format(len(definitions)))
+    print("Total number of sections with crashes for definitions: {}".format(total_section_crash_count))
+    print("Total number of definitions: {}".format(total_num_definitions))
+    print("Total number of definitions that cause C&C/Boxer crash: {}".format(total_num_crashes))
+    return crashed_token_counts
 
-def read_rules(filepath):
-    with open(filepath, 'r') as f:
-        data = json.load(f)
-    rules = {
-        "general-rule": [],
-        "exceptions": [],
-        "special-rules": []
+def count_rule_crashes(ccboxer, rules):
+    crashed_token_counts = {
+        "general-rule": dict(),
+        "exceptions": dict(),
+        "special-rules": dict()
     }
-    for section_id in data:
-        for level_id in data[section_id]:
-            for rule_type in data[section_id][level_id]:
-                rules[rule_type].extend(data[section_id][level_id][rule_type])
-    return rules
+    total_num_rules = {
+        "general-rule": 0,
+        "exceptions": 0,
+        "special-rules": 0
+    }
+    total_num_crashes = {
+        "general-rule": 0,
+        "exceptions": 0,
+        "special-rules": 0
+    }
+    total_section_crash_count = {
+        "general-rule": {"total": 0, "crash": 0},
+        "exceptions": {"total": 0, "crash": 0},
+        "special-rules": {"total": 0, "crash": 0}
+    }
+    for section_id in rules:
+        section_rules = {
+            "general-rule": [],
+            "exceptions": [],
+            "special-rules": []
+        }
+        for level_id in rules[section_id]:
+            level_rules = rules[section_id][level_id]
+            for rule_type in level_rules:
+                section_rules[rule_type].extend(level_rules[rule_type])
+        for rule_type in section_rules:
+            sentences = section_rules[rule_type]
+            token_counts = count_crashes(ccboxer, sentences)
+            crashed_token_counts[rule_type][section_id] = token_counts
+            if len(sentences) > 0:
+                total_section_crash_count[rule_type]["total"] += 1
+            if len(token_counts) > 0:
+                total_section_crash_count[rule_type]["crash"] += 1
+            total_num_crashes[rule_type] += len(token_counts)
+            total_num_rules[rule_type] += len(sentences)
+    for rule_type in total_num_rules:
+        print("Total number of sections with rules of type {}: {}".format(rule_type, total_section_crash_count[rule_type]["total"]))
+        print("Total number of sections with crashes for rules of type {}: {}".format(rule_type, total_section_crash_count[rule_type]["crash"]))
+        print("Total number of rules of type {}: {}".format(rule_type, total_num_rules[rule_type]))
+        print("Total number of rules of type {} that cause C&C/Boxer crash: {}".format(rule_type, total_num_crashes[rule_type]))
+    print("Total number of rules: {}".format(sum(total_num_rules.values())))
+    print("Total number of rules that cause C&C/Boxer crash: {}".format(sum(total_num_crashes.values())))
+    return crashed_token_counts
 
 def count_crashes(ccboxer, sentences):
     crashed_token_counts = []
@@ -37,34 +84,19 @@ def count_crashes(ccboxer, sentences):
 
 def main(args):
     ccboxer = candc_boxer_api.CCBoxerAPI()
-    all_crashed_token_counts = {
-        "definitions": [],
-        "rules": {
-            "general-rule": [],
-            "exceptions": [],
-            "special-rules": []
-        }
-    }
+    all_crashed_token_counts = dict()
 
-    definitions = read_definitions(args.definitions_filepath)
-    print("Total number of definitions: {}".format(len(definitions)))
-    crashed_token_counts = count_crashes(ccboxer, definitions)
-    print("Total number of definitions that cause C&C/Boxer crash: {}".format(len(crashed_token_counts)))
-    all_crashed_token_counts["definitions"] = crashed_token_counts
+    with open(args.definitions_filepath, 'r') as f:
+        definitions = json.load(f)
+
+    with open(args.rules_filepath, 'r') as f:
+        rules = json.load(f)
+
+    all_crashed_token_counts["definitions"] = count_definition_crashes(ccboxer, definitions)
 
     print("*"*25)
 
-    all_rules = read_rules(args.rules_filepath)
-    total_crash_count = 0
-    for rule_type in all_rules:
-        rules = all_rules[rule_type]
-        crashed_token_counts = count_crashes(ccboxer, rules)
-        print("Total number of rules of type {}: {}".format(rule_type, len(rules)))
-        print("Total number of rules of type {} that cause C&C/Boxer crash: {}".format(rule_type, len(crashed_token_counts)))
-        all_crashed_token_counts["rules"][rule_type] = crashed_token_counts
-        total_crash_count += len(crashed_token_counts)
-    print("Total number of rules: {}".format(sum([len(rules) for rules in all_rules.values()])))
-    print("Total number of rules that cause C&C/Boxer crash: {}".format(total_crash_count))
+    all_crashed_token_counts["rules"] = count_rule_crashes(ccboxer, rules)
 
     with open(args.output_file, 'w') as f:
         json.dump(all_crashed_token_counts, f, indent=4, sort_keys=True, encoding="UTF-8")
